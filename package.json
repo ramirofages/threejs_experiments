@@ -1,0 +1,30 @@
+{
+  "build": {
+    "appId": "com.ramirofages.three",
+    "app-category-type": "webgl",
+  },
+  "directories": {
+    "buildResources": "resources",
+    "app": "build"
+  },
+  "devDependencies": {
+    "gulp": "^3.9.0",
+    "gulp-batch": "^1.0.5",
+    "gulp-less": "^3.0.3",
+    "gulp-plumber": "^1.1.0",
+    "gulp-sass": "^2.3.2",
+    "gulp-util": "^3.0.6",
+    "gulp-watch": "^4.3.5",
+    "q": "^1.4.1",
+    "rollup": "^0.26.3"
+  },
+  "scripts": {
+    "postinstall": "install-app-deps",
+    "build": "gulp build",
+    "prerelease": "gulp build --env=production",
+    "release": "build --x64 --publish never",
+    "start": "gulp start",
+    "pretest": "gulp build --env=test",
+    "test": "electron-mocha build --renderer"
+  }
+}

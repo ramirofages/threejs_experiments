@@ -7,6 +7,9 @@ renderer.setSize( window.innerWidth, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
 camera.position.set(0,0,10);
+camera.position.z = 45;
+camera.position.y = 15;
+
 var clock = new THREE.Clock(true);
 clock.getDelta();
 //camera.position.set(5,-82,28);
@@ -73,7 +76,7 @@ var myFragmentShader = `
     vec3 final_color = max(0.0, dot(vNormal,vec3(0.0,1.0,0.0))) * grass_color +
                        max(0.0, dot(vNormal,vec3(0.0,-1.0,0.0))) * rock_color;
     //gl_FragColor = vec4(normal * 0.5 + 0.5 , 1.0);
-    float diffuse = dot(light_dir, normal) * 0.5 + 0.5;
+    float diffuse = dot(normalize(light_dir), normal) * 0.5 + 0.5;
     vec3 diffuse_color = texture2D(diffuse_ramp, vec2(diffuse ,0.0)).rgb;
     gl_FragColor = vec4(final_color * diffuse_color , 1.0);
   }
@@ -102,7 +105,7 @@ var shaderMaterial =
         grass: { type: "t", value: null},
         rock: { type: "t", value: null},
         diffuse_ramp: { type: "t", value: null},
-        light_dir: { type:"v3", value:new THREE.Vector3( 1, 1, 1 )}
+        light_dir: { type:"v3", value:new THREE.Vector3( 1, 1, -1 )}
     },
     vertexShader:   myVertexShader,
     fragmentShader: myFragmentShader
@@ -147,7 +150,6 @@ var skyboxMaterial =
   }, onProgress, onError );
 
   var tex_loader = new THREE.TextureLoader().load("textures/island_diffuse_ramp.png", function(tex){
-    //tex.wrapS = tex.wrapT = THREE.RepeatWrapping
     shaderMaterial.uniforms["diffuse_ramp"].value = tex;
     shaderMaterial.needsUpdate = true;
   }, onProgress, onError );
@@ -193,11 +195,39 @@ var skyboxMaterial =
 
 	}, onProgress, onError );
 
+
+  var animation = null;
+  var kfAnimation = null;
+  var loader = new THREE.ColladaLoader();
+
+	loader.options.convertUpAxis = true;
+	loader.load( './models/molino.dae', function ( collada ) {
+		dae = collada.scene;
+
+    kfAnimation = new THREE.KeyFrameAnimation( collada.animations[0] );
+		kfAnimation.timeScale = 1;
+    kfAnimation.loop = false;
+		kfAnimation.play(0);
+		dae.traverse( function ( child ) {
+
+      if ( child instanceof THREE.Mesh ) {
+				child.material =  new THREE.MeshNormalMaterial();
+        //child.material =  new THREE.MeshBasicMaterial( { color: 0x00ffff} );;
+			}
+		} );
+
+    dae.position.y +=9;
+    dae.position.z -=10;
+
+		dae.scale.x = dae.scale.y = dae.scale.z = 0.5;
+    dae.updateMatrix();
+    scene.add( dae );
+	} );
+
   //#################################################################################
   //#################################################################################
 
-camera.position.z = 50;
-camera.position.y = 15;
+
 
 
   //
@@ -208,17 +238,26 @@ camera.position.y = 15;
   var sphere = new THREE.Mesh( geometry, skyboxMaterial );
   sphere.position.copy(camera.position);
   scene.add( sphere );
+
   var render = function () {
   	requestAnimationFrame( render );
+
+    var delta = clock.getDelta();
 
     if(island !== null)
     {
       var dir = camera.position.sub(island.position);
-      dir.applyAxisAngle(new THREE.Vector3(0,-1,0),clock.getDelta() / 10);
+      dir.applyAxisAngle(new THREE.Vector3(0,-1,0),delta / 10);
       camera.position.copy(dir.add(island.position));
-      camera.lookAt(island.position);
+      var look_view = (new THREE.Vector3(0,10,0)).add(island.position);
+      camera.lookAt(look_view);
       sphere.position.copy(camera.position);
 
+    }
+    if(kfAnimation !== null)
+    {
+      kfAnimation.update(delta);
+      if(kfAnimation.currentTime >= kfAnimation.data.length){kfAnimation.stop();kfAnimation.play(0);}
     }
   	renderer.render(scene, camera);
 };

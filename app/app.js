@@ -1,12 +1,14 @@
 
 var scene = new THREE.Scene();
-var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+var camera = new THREE.PerspectiveCamera( 60, window.innerWidth/window.innerHeight, 0.1, 1000 );
 
 var renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
 document.body.appendChild( renderer.domElement );
 
 camera.position.set(0,0,10);
+var clock = new THREE.Clock(true);
+clock.getDelta();
 //camera.position.set(5,-82,28);
 // camera.position.x = 5;
 // camera.position.y = -84;
@@ -16,6 +18,8 @@ camera.position.set(0,0,10);
 var myVertexShader = `
 
   varying vec3 vNormal;
+  varying vec3 wNormal;
+
   varying vec3 world_pos;
   varying vec2 uvs;
   void main() {
@@ -24,6 +28,7 @@ var myVertexShader = `
                   vec4(position,1.0);
 
     vNormal = normal;
+    wNormal = (modelMatrix * vec4(normalize(normal),0.0)).xyz;
     world_pos = (modelMatrix * vec4(position,1.0)).xyz;
     uvs = uv;
   }
@@ -31,12 +36,16 @@ var myVertexShader = `
 var myFragmentShader = `
   uniform sampler2D grass;
   uniform sampler2D rock;
+  uniform sampler2D diffuse_ramp;
 
+  uniform vec3 light_dir;
   varying vec3 vNormal;
+  varying vec3 wNormal;
   varying vec3 world_pos;
   varying vec2 uvs;
 
   void main() {
+    vec3 normal = normalize(wNormal);
 
     vec2 yUV = world_pos.xz / 10.0;
 		vec2 xUV = world_pos.zy / 10.0;
@@ -63,9 +72,10 @@ var myFragmentShader = `
 
     vec3 final_color = max(0.0, dot(vNormal,vec3(0.0,1.0,0.0))) * grass_color +
                        max(0.0, dot(vNormal,vec3(0.0,-1.0,0.0))) * rock_color;
-    //gl_FragColor = vec4(vNormal * 0.5 + 0.5 , 1.0);
-    gl_FragColor = vec4(final_color , 1.0);
-    //gl_FragColor = vec4(texture2D(grass,uvs).xyz , 1.0);
+    //gl_FragColor = vec4(normal * 0.5 + 0.5 , 1.0);
+    float diffuse = dot(light_dir, normal) * 0.5 + 0.5;
+    vec3 diffuse_color = texture2D(diffuse_ramp, vec2(diffuse ,0.0)).rgb;
+    gl_FragColor = vec4(final_color * diffuse_color , 1.0);
   }
 `;
 
@@ -76,10 +86,12 @@ uniform samplerCube skybox;
 
   void main(){
     //gl_FragColor = vec4( 1.0, 1.0, 1.0, 1.0);
-
-    gl_FragColor = vec4(textureCube(skybox,vNormal).xyz , 1.0);
+    vec3 view_dir = normalize(world_pos - cameraPosition);
+    gl_FragColor = vec4(textureCube(skybox,view_dir).xyz , 1.0);
   }
 `;
+
+
 //
 //#################################################################################
 //#################################################################################
@@ -88,7 +100,9 @@ var shaderMaterial =
   new THREE.ShaderMaterial({
     uniforms: {
         grass: { type: "t", value: null},
-        rock: { type: "t", value: null}
+        rock: { type: "t", value: null},
+        diffuse_ramp: { type: "t", value: null},
+        light_dir: { type:"v3", value:new THREE.Vector3( 1, 1, 1 )}
     },
     vertexShader:   myVertexShader,
     fragmentShader: myFragmentShader
@@ -132,6 +146,12 @@ var skyboxMaterial =
     shaderMaterial.needsUpdate = true;
   }, onProgress, onError );
 
+  var tex_loader = new THREE.TextureLoader().load("textures/island_diffuse_ramp.png", function(tex){
+    //tex.wrapS = tex.wrapT = THREE.RepeatWrapping
+    shaderMaterial.uniforms["diffuse_ramp"].value = tex;
+    shaderMaterial.needsUpdate = true;
+  }, onProgress, onError );
+
   var loader = new THREE.CubeTextureLoader();
   loader.setPath( 'textures/' );
   loader.load( [
@@ -150,6 +170,8 @@ var skyboxMaterial =
 
 
 	var loader = new THREE.OBJLoader( manager );
+
+  var island = null;
 	loader.load( 'models/floating_island.obj', function ( object ) {
 
 		object.traverse( function ( child ) {
@@ -158,12 +180,13 @@ var skyboxMaterial =
 
 				//child.material =  new THREE.MeshNormalMaterial();
         child.material =  shaderMaterial;
+
 			}
 
 		} );
 
-		//object.position.y = - 95;
     object.position.set(0,0,0);
+    island = object;
     camera.lookAt(object.position);
 
 		scene.add( object );
@@ -178,8 +201,8 @@ camera.position.y = 15;
 
 
   //
-  var geometry = new THREE.SphereGeometry( 5, 32, 32 );
-  //var geometry = new THREE.BoxGeometry( 1, 1, 1 );
+  //var geometry = new THREE.SphereGeometry( 5, 32, 32 );
+  var geometry = new THREE.BoxGeometry( 1, 1, 1 );
   var material = new THREE.MeshBasicMaterial( { color: 0xffffff} );
 
   var sphere = new THREE.Mesh( geometry, skyboxMaterial );
@@ -188,7 +211,15 @@ camera.position.y = 15;
   var render = function () {
   	requestAnimationFrame( render );
 
+    if(island !== null)
+    {
+      var dir = camera.position.sub(island.position);
+      dir.applyAxisAngle(new THREE.Vector3(0,-1,0),clock.getDelta() / 10);
+      camera.position.copy(dir.add(island.position));
+      camera.lookAt(island.position);
+      sphere.position.copy(camera.position);
 
+    }
   	renderer.render(scene, camera);
 };
 

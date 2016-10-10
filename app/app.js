@@ -217,7 +217,7 @@ var skyboxMaterial =
 		} );
 
     dae.position.y +=9;
-    dae.position.z -=10;
+    dae.position.z -=15;
 
 		dae.scale.x = dae.scale.y = dae.scale.z = 0.5;
     dae.updateMatrix();
@@ -239,8 +239,16 @@ var skyboxMaterial =
   sphere.position.copy(camera.position);
   scene.add( sphere );
 
-  var render = function () {
+
+  //#################################################################################
+  //#################################################################################
+
+  var last_timestamp=0;
+
+  var render = function (timestamp) {
+
   	requestAnimationFrame( render );
+
 
     var delta = clock.getDelta();
 

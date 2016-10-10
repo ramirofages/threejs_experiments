@@ -47,9 +47,9 @@ var myFragmentShader = `
   void main() {
     vec3 normal = normalize(wNormal);
 
-    vec2 yUV = world_pos.xz / 10.0;
-		vec2 xUV = world_pos.zy / 10.0;
-		vec2 zUV = world_pos.xy / 10.0;
+    vec2 yUV = world_pos.xz / 20.0;
+		vec2 xUV = world_pos.zy / 20.0;
+		vec2 zUV = world_pos.xy / 20.0;
 
 		vec3 yDiff = texture2D(grass, yUV).xyz;
 		vec3 xDiff = texture2D (grass, xUV).xyz;

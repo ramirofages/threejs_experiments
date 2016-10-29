@@ -1,4 +1,3 @@
-
 var scene = new THREE.Scene();
 var camera = new THREE.PerspectiveCamera( 60, window.innerWidth/window.innerHeight, 0.1, 1000 );
 
@@ -10,13 +9,21 @@ camera.position.set(0,0,10);
 camera.position.z = 45;
 camera.position.y = 15;
 
+
+var orbit = new THREE.OrbitControls(camera);
+
 var clock = new THREE.Clock(true);
 clock.getDelta();
-//camera.position.set(5,-82,28);
-// camera.position.x = 5;
-// camera.position.y = -84;
-//
-// camera.position.z = 34;
+
+
+
+var stats = new Stats();
+stats.showPanel( 1 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+document.body.appendChild( stats.dom );
+
+
+
+
 
 var myVertexShader = `
 
@@ -51,26 +58,26 @@ var myFragmentShader = `
     vec3 normal = normalize(wNormal);
 
     vec2 yUV = world_pos.xz / 20.0;
-		vec2 xUV = world_pos.zy / 20.0;
-		vec2 zUV = world_pos.xy / 20.0;
+        vec2 xUV = world_pos.zy / 20.0;
+        vec2 zUV = world_pos.xy / 20.0;
 
-		vec3 yDiff = texture2D(grass, yUV).xyz;
-		vec3 xDiff = texture2D (grass, xUV).xyz;
-		vec3 zDiff = texture2D (grass, zUV).xyz;
+        vec3 yDiff = texture2D(grass, yUV).xyz;
+        vec3 xDiff = texture2D (grass, xUV).xyz;
+        vec3 zDiff = texture2D (grass, zUV).xyz;
 
     float blend_x = pow(abs(vNormal.x),50.0);
     float blend_y = pow(abs(vNormal.y),50.0);
     float blend_z = pow(abs(vNormal.z),50.0);
 
     vec3 yDiff_rock = texture2D (rock, yUV).xyz;
-		vec3 xDiff_rock = texture2D (rock, xUV).xyz;
-		vec3 zDiff_rock = texture2D (rock, zUV).xyz;
+        vec3 xDiff_rock = texture2D (rock, xUV).xyz;
+        vec3 zDiff_rock = texture2D (rock, zUV).xyz;
 
     vec3 blendWeights = vec3(blend_x, blend_y, blend_z);
 
-		blendWeights = blendWeights / (blendWeights.x + blendWeights.y + blendWeights.z);
+        blendWeights = blendWeights / (blendWeights.x + blendWeights.y + blendWeights.z);
 
-		vec3 grass_color = xDiff      * blendWeights.x + yDiff      * blendWeights.y + zDiff      * blendWeights.z;
+        vec3 grass_color = xDiff      * blendWeights.x + yDiff      * blendWeights.y + zDiff      * blendWeights.z;
     vec3 rock_color  = xDiff_rock * blendWeights.x + yDiff_rock * blendWeights.y + zDiff_rock * blendWeights.z;
 
     vec3 final_color = max(0.0, dot(vNormal,vec3(0.0,1.0,0.0))) * grass_color +
@@ -82,17 +89,6 @@ var myFragmentShader = `
   }
 `;
 
-var skybox_frag= `
-varying vec3 vNormal;
-varying vec3 world_pos;
-uniform samplerCube skybox;
-
-  void main(){
-    //gl_FragColor = vec4( 1.0, 1.0, 1.0, 1.0);
-    vec3 view_dir = normalize(world_pos - cameraPosition);
-    gl_FragColor = vec4(textureCube(skybox,view_dir).xyz , 1.0);
-  }
-`;
 
 
 //
@@ -121,8 +117,70 @@ var skyboxMaterial =
       depthWrite: false,
       side: THREE.BackSide
     });
+
+var cloudsMaterial =
+    new THREE.ShaderMaterial({
+      uniforms: {
+          _MainTex: { value: null},
+          _Frequency : {value : 0},
+          _Gain : {value : 0},
+          _CutOff : {value : 0},
+          _Amplitude : {value : 0},
+          _CloudCover : {value : 0},
+          _CloudSharpness : {value : 0}
+      },
+      vertexShader:   myVertexShader,
+      fragmentShader: clouds_frag,
+      depthWrite: false,
+      transparent: true,
+      blending: THREE.NormalBlending
+    });
 //#################################################################################
 //#################################################################################
+
+
+
+//##############################################################################
+//##############################################################################
+
+
+
+var uniforms = {
+  _Frequency  : 0.0108,
+  _Gain  : 0.571,
+  _CutOff  : 0.655,
+  _Amplitude  : 0.75,
+  _CloudCover  : 0.256,
+  _CloudSharpness  : 0.078
+}
+
+    var colChanged = function( ) {
+      cloudsMaterial.uniforms["_Frequency"].value = uniforms._Frequency ;
+      cloudsMaterial.uniforms["_Gain"].value = uniforms._Gain;
+      cloudsMaterial.uniforms["_CutOff"].value = uniforms._CutOff;
+      cloudsMaterial.uniforms["_Amplitude"].value = uniforms._Amplitude;
+      cloudsMaterial.uniforms["_CloudCover"].value = uniforms._CloudCover;
+      cloudsMaterial.uniforms["_CloudSharpness"].value = uniforms._CloudSharpness;
+    };
+    colChanged();
+
+
+
+      gui = new dat.GUI();
+      gui.add( uniforms, "_Frequency", 0.001, 0.2, 0.0025 ).listen().onChange( colChanged );
+      gui.add( uniforms, "_Gain", 0, 1, 0.0025 ).listen().onChange( colChanged );
+      gui.add( uniforms, "_CutOff", 0, 1, 0.0025 ).listen().onChange( colChanged );
+      gui.add( uniforms, "_Amplitude", 0, 1, 0.0025 ).listen().onChange( colChanged );
+      gui.add( uniforms, "_CloudCover", 0, 1, 0.0025 ).listen().onChange( colChanged );
+      gui.add( uniforms, "_CloudSharpness", 0, 1, 0.0025 ).listen().onChange( colChanged );
+
+
+
+//##############################################################################
+//##############################################################################
+
+
+
 
   var onProgress = function ( xhr ) {
     if ( xhr.lengthComputable ) {
@@ -141,6 +199,8 @@ var skyboxMaterial =
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping
     shaderMaterial.uniforms["grass"].value = tex;
     shaderMaterial.needsUpdate = true;
+
+
   }, onProgress, onError );
 
   var tex_loader = new THREE.TextureLoader().load("textures/rock.jpg", function(tex){
@@ -157,9 +217,9 @@ var skyboxMaterial =
   var loader = new THREE.CubeTextureLoader();
   loader.setPath( 'textures/' );
   loader.load( [
-    	'sky_px.png', 'sky_nx.png',
-    	'sky_py.png', 'sky_ny.png',
-    	'sky_pz.png', 'sky_nz.png'
+        'sky_px.png', 'sky_nx.png',
+        'sky_py.png', 'sky_ny.png',
+        'sky_pz.png', 'sky_nz.png'
     ], function ( cubemap ) {
       skyboxMaterial.uniforms["skybox"].value = cubemap;
       skyboxMaterial.needsUpdate = true;
@@ -168,61 +228,75 @@ var skyboxMaterial =
   var manager = new THREE.LoadingManager();
 
 
+   var cloud_tex_array = new Uint8Array(32*1024 * 3);
+   for(var i=0; i< 32*1024 * 3; i++)
+   {
+        cloud_tex_array[i] = Math.random() * 255 | 0;
+   }
+   var cloud_texture = new THREE.DataTexture(cloud_tex_array, 32, 1024,
+                    THREE.RGBFormat);
+   cloud_texture.wrapS = THREE.RepeatWrapping;
+   cloud_texture.wrapT = THREE.RepeatWrapping;
+   cloud_texture.magFilter = THREE.LinearFilter;
+   cloud_texture.needsUpdate = true;
+
+   cloudsMaterial.uniforms["_MainTex"].value = cloud_texture;
+   cloudsMaterial.needsUpdate = true;
   //#################################################################################
 
 
-	var loader = new THREE.OBJLoader( manager );
+    var loader = new THREE.OBJLoader( manager );
 
   var island = null;
-	loader.load( 'models/floating_island.obj', function ( object ) {
+    loader.load( 'models/floating_island.obj', function ( object ) {
 
-		object.traverse( function ( child ) {
+        object.traverse( function ( child ) {
 
-			if ( child instanceof THREE.Mesh ) {
+            if ( child instanceof THREE.Mesh ) {
 
-				//child.material =  new THREE.MeshNormalMaterial();
+                //child.material =  new THREE.MeshNormalMaterial();
         child.material =  shaderMaterial;
 
-			}
+            }
 
-		} );
+        } );
 
     object.position.set(0,0,0);
     island = object;
     camera.lookAt(object.position);
 
-		scene.add( object );
+        scene.add( object );
 
-	}, onProgress, onError );
+    }, onProgress, onError );
 
 
   var animation = null;
   var kfAnimation = null;
   var loader = new THREE.ColladaLoader();
 
-	loader.options.convertUpAxis = true;
-	loader.load( './models/molino.dae', function ( collada ) {
-		dae = collada.scene;
+    loader.options.convertUpAxis = true;
+    loader.load( './models/molino.dae', function ( collada ) {
+        dae = collada.scene;
 
     kfAnimation = new THREE.KeyFrameAnimation( collada.animations[0] );
-		kfAnimation.timeScale = 1;
+        kfAnimation.timeScale = 1;
     kfAnimation.loop = false;
-		kfAnimation.play(0);
-		dae.traverse( function ( child ) {
+        kfAnimation.play(0);
+        dae.traverse( function ( child ) {
 
       if ( child instanceof THREE.Mesh ) {
-				child.material =  new THREE.MeshNormalMaterial();
+                child.material =  new THREE.MeshNormalMaterial();
         //child.material =  new THREE.MeshBasicMaterial( { color: 0x00ffff} );;
-			}
-		} );
+            }
+        } );
 
     dae.position.y +=9;
     dae.position.z -=15;
 
-		dae.scale.x = dae.scale.y = dae.scale.z = 0.5;
+        dae.scale.x = dae.scale.y = dae.scale.z = 0.5;
     dae.updateMatrix();
     scene.add( dae );
-	} );
+    } );
 
   //#################################################################################
   //#################################################################################
@@ -233,11 +307,18 @@ var skyboxMaterial =
   //
   //var geometry = new THREE.SphereGeometry( 5, 32, 32 );
   var geometry = new THREE.BoxGeometry( 1, 1, 1 );
-  var material = new THREE.MeshBasicMaterial( { color: 0xffffff} );
+  var basic_material = new THREE.MeshBasicMaterial( { color: 0xffffff} );
 
   var sphere = new THREE.Mesh( geometry, skyboxMaterial );
+  var test_cube = new THREE.Mesh( geometry, cloudsMaterial );
   sphere.position.copy(camera.position);
+
+  test_cube.position.copy(camera.position);
+  test_cube.position.z-=40;
+  test_cube.position.y -=10;
+  test_cube.scale.set(60,30,30);
   scene.add( sphere );
+  scene.add(test_cube);
 
 
   //#################################################################################
@@ -246,10 +327,14 @@ var skyboxMaterial =
   var last_timestamp=0;
 
   var render = function (timestamp) {
+    stats.begin();
 
-  	requestAnimationFrame( render );
+    requestAnimationFrame( render );
+
+    // monitored code goes here
 
 
+    orbit.update();
     var delta = clock.getDelta();
 
     if(island !== null)
@@ -267,7 +352,9 @@ var skyboxMaterial =
       kfAnimation.update(delta);
       if(kfAnimation.currentTime >= kfAnimation.data.length){kfAnimation.stop();kfAnimation.play(0);}
     }
-  	renderer.render(scene, camera);
+
+    renderer.render(scene, camera);
+    stats.end();
 };
 
 render();

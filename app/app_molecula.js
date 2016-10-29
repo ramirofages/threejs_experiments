@@ -226,10 +226,12 @@ var uniforms = {
 
     requestAnimationFrame( render );
     var x = Math.sin(timestamp/1000);
+
+    var x1 = Math.sin(timestamp/1000 + 2);
     sphere.position.x = sphere_initial_pos.x + x/3.5 ;
     sphere.position.y = sphere_initial_pos.y + x/5 ;
 
-    sphere_3.position.x = sphere_3_initial_pos.x + x/4 ;
+    sphere_3.position.x = sphere_3_initial_pos.x + x1/4 ;
 
     renderer.render(scene, camera);
     stats.end();
